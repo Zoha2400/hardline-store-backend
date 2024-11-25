@@ -1,0 +1,29 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Backend app for my uni task ",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zoha2400/hardline-store-backend.git"
+  },
+  "keywords": [
+    "backend",
+    "techsite",
+    "webshop"
+  ],
+  "author": "Zoha2400",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Zoha2400/hardline-store-backend/issues"
+  },
+  "homepage": "https://github.com/Zoha2400/hardline-store-backend#readme",
+  "dependencies": {
+    "express": "^4.21.1",
+    "nodemon": "^3.1.7"
+  }
+}
