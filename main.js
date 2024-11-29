@@ -2,11 +2,12 @@ import express from 'express';
 import validator from 'validator';
 import { pool} from "./database/db.js";
 import bcrypt from 'bcryptjs';
+import cors from 'cors'
 
 const app = express();
 
 app.use(express.json());
-
+app.use(cors())
 
 app.get('/', (req, res) => {
     res.json("success",)
