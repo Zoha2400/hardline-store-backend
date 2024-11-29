@@ -109,6 +109,22 @@ app.get('/get_all', async (req, res) => {
     }
 })
 
+app.get('/product/[id]', async (req, res) => {
+    const { id } = req.params;
+    const client = await pool.connect();
+
+    try {
+        const result = await client.query('SELECT * FROM products WHERE product_id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error getting product:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+})
+
 app.listen(8000, () => {
     console.log('Server is running on port 8000');
 });
