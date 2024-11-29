@@ -95,6 +95,19 @@ app.post('/login', async (req, res) => {
     }
 });
 
+
+app.get('/get_all', async (req, res) => {
+    const client = await pool.connect();
+
+    try {
+        const result = await client.query('SELECT * FROM products');
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error getting users:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+})
+
 app.listen(8000, () => {
     console.log('Server is running on port 8000');
 });
