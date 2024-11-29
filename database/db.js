@@ -1,12 +1,12 @@
-import pg from 'pg';
-const { Pool } = pg;
+import pkg from 'pg';
+const { Pool } = pkg;
 
-const pool = new Pool({
-    host: 'localhost',
-    user: 'tuit',
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000
+export const pool = new Pool({
+    user: process.env.POSTGRES_USER,
+    host: 'hardline_postgres',
+    database: process.env.POSTGRES_DB,
+    password: process.env.POSTGRES_PASSWORD,
+    port: 5432,
 });
 
-export { pool };
+
