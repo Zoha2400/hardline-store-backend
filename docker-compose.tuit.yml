@@ -14,6 +14,7 @@ services:
       - "8000:8000"
     depends_on:
       - hardline_postgres
+    command: npm run dev
 
 
   hardline_postgres:

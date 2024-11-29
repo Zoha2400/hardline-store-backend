@@ -10,4 +10,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["npx", "nodemon", "main.js"]
+CMD ["npm", "run", "dev"]
