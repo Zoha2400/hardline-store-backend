@@ -5,7 +5,9 @@
   "main": "main.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "repository": {
     "type": "git",
@@ -24,8 +26,10 @@
   "homepage": "https://github.com/Zoha2400/hardline-store-backend#readme",
   "dependencies": {
     "express": "^4.21.1",
-    "nodemon": "^3.1.7",
     "pg": "^8.13.1",
     "validator": "^13.12.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
   }
 }
