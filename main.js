@@ -97,7 +97,7 @@ app.post('/login', async (req, res) => {
 });
 
 
-app.get('/get_all', async (req, res) => {
+app.get('/products', async (req, res) => {
     const client = await pool.connect();
 
     try {
@@ -109,7 +109,7 @@ app.get('/get_all', async (req, res) => {
     }
 })
 
-app.get('/product/[id]', async (req, res) => {
+app.get('/product/:id', async (req, res) => {
     const { id } = req.params;
     const client = await pool.connect();
 
