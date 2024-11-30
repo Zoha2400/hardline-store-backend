@@ -3,6 +3,7 @@ import validator from 'validator';
 import { pool} from "./database/db.js";
 import bcrypt from 'bcryptjs';
 import cors from 'cors'
+import jwt from 'jsonwebtoken'
 
 const app = express();
 
@@ -15,6 +16,8 @@ app.get('/', (req, res) => {
 
 
 app.post('/reg', async (req, res) => {
+    const secretKey = 'yourSecretKey';
+
     const { username, email, password } = req.body;
 
     if (!username || !email || !password) {
@@ -41,9 +44,17 @@ app.post('/reg', async (req, res) => {
             [username, passwordHash, email]
         );
 
+        const token = jwt.sign(
+            { id: result.rows[0].id, username: result.rows[0].user_name },
+            secretKey,
+            { expiresIn: '24h' } // Токен действителен 1 час
+        );
+
+
+
         return res.status(201).json({
             message: 'User created successfully',
-            user: { id: result.rows[0].id, username: result.rows[0].user_name, email: result.rows[0].email }
+            data: { token: token, email: result.rows[0].email }
         });
     } catch (err) {
         console.error('Error creating user:', err);
