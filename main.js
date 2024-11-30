@@ -51,7 +51,6 @@ app.post('/reg', async (req, res) => {
         );
 
 
-
         return res.status(201).json({
             message: 'User created successfully',
             data: { token: token, email: result.rows[0].email }
@@ -71,6 +70,7 @@ app.post('/reg', async (req, res) => {
 
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
+    const secretKey = 'yourSecretKey';
 
     if (!email || !password) {
         return res.status(400).json({ error: 'All fields are required' });
@@ -93,9 +93,19 @@ app.post('/login', async (req, res) => {
 
         const isRealPassword = await bcrypt.compare(password, hashedPassword);
 
+
         if (isRealPassword) {
-            res.cookie('client', JSON.stringify({ email }), { httpOnly: true });
-            return res.json({ message: 'Logged In Successfully' });
+
+            const token = jwt.sign(
+                { id: result.rows[0].id, username: result.rows[0].user_name },
+                secretKey,
+                { expiresIn: '24h' } // Токен действителен 1 час
+            );
+
+            return res.status(201).json({
+                message: 'Logged In Successfully',
+                data: { token: token, email: email}
+            });
         } else {
             return res.status(401).json({ error: 'Invalid password' });
         }
