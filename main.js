@@ -8,7 +8,10 @@ import jwt from 'jsonwebtoken'
 const app = express();
 
 app.use(express.json());
-app.use(cors())
+app.use(cors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+}));
 
 app.get('/', (req, res) => {
     res.json("success",)
@@ -50,10 +53,22 @@ app.post('/reg', async (req, res) => {
             { expiresIn: '24h' } // Токен действителен 1 час
         );
 
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', // только для HTTPS в продакшене
+            sameSite: 'Strict',
+            maxAge: 24 * 60 * 60 * 1000 // Токен живет 1 день
+        });
+        res.cookie('email', email, {
+            httpOnly: false,  // Это можно сделать доступным для JS, если нужно
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Strict',
+            maxAge: 24 * 60 * 60 * 1000
+        });
 
         return res.status(201).json({
             message: 'User created successfully',
-            data: { token: token, email: result.rows[0].email }
+            data: { email: result.rows[0].email }
         });
     } catch (err) {
         console.error('Error creating user:', err);
@@ -93,18 +108,29 @@ app.post('/login', async (req, res) => {
 
         const isRealPassword = await bcrypt.compare(password, hashedPassword);
 
-
         if (isRealPassword) {
-
             const token = jwt.sign(
                 { id: result.rows[0].id, username: result.rows[0].user_name },
                 secretKey,
                 { expiresIn: '24h' } // Токен действителен 1 час
             );
 
+            res.cookie('token', token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production', // только для HTTPS в продакшене
+                sameSite: 'Strict',
+                maxAge: 24 * 60 * 60 * 1000 // Токен живет 1 день
+            });
+            res.cookie('email', email, {
+                httpOnly: false,  // Это можно сделать доступным для JS, если нужно
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'Strict',
+                maxAge: 24 * 60 * 60 * 1000
+            });
+
             return res.status(201).json({
                 message: 'Logged In Successfully',
-                data: { token: token, email: email}
+                data: { email: email }
             });
         } else {
             return res.status(401).json({ error: 'Invalid password' });
@@ -116,6 +142,7 @@ app.post('/login', async (req, res) => {
         client.release();
     }
 });
+
 
 
 app.get('/products', async (req, res) => {
