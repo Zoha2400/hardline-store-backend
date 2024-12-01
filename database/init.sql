@@ -7,13 +7,32 @@ END $$;
 CREATE TABLE IF NOT EXISTS users (
     user_id SERIAL PRIMARY KEY,
     user_uuid UUID DEFAULT uuid_generate_v4() NOT NULL UNIQUE,
-    user_name VARCHAR(60) NOT NULL,
+    username VARCHAR(60) NOT NULL,
     password VARCHAR(200) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    role VARCHAR(50) NOT NULL DEFAULT 'customer'
+    role VARCHAR(50) NOT NULL DEFAULT 'customer',
+    phone VARCHAR(100) NOT NULL DEFAULT '',
+    adress VARCHAR(100) NOT NULL DEFAULT ''
     );
+
+
+CREATE TABLE IF NOT EXISTS cart (
+    cart_id SERIAL PRIMARY KEY,
+    cart_uuid UUID DEFAULT uuid_generate_v4() NOT NULL,
+    user_uuid UUID NOT NULL,
+    item_uuid UUID NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_uuid) REFERENCES users(user_uuid)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cart_user ON cart(user_uuid);
+CREATE INDEX IF NOT EXISTS idx_cart_item ON cart(item_uuid);
+CREATE INDEX IF NOT EXISTS idx_cart_cartuuid ON cart(cart_uuid);
 
 
 CREATE TABLE IF NOT EXISTS products (
