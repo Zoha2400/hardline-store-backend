@@ -17,9 +17,8 @@ services:
     command: npm run dev
     deploy:
       resources:
-        limits:
-          cpus: "1.0"
-          memory: "512m"
+        limits: { }
+
 
 
 
