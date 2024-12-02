@@ -333,6 +333,78 @@ app.put('/addCart', async (req, res) => {
     }
 });
 
+async function getUserUUID(client, email) {
+    try {
+        const result = await client.query('SELECT user_uuid FROM users WHERE email = $1', [email]);
+        return result.rows[0]?.user_uuid || null;
+    } catch (err) {
+        console.error('Error fetching user UUID:', err);
+        return null;
+    }
+}
+
+async function getItemUUID(client, itemId) {
+    try {
+        const result = await client.query('SELECT item_uuid FROM items WHERE id = $1', [itemId]);
+        return result.rows[0]?.item_uuid || null;
+    } catch (err) {
+        console.error('Error fetching item UUID:', err);
+        return null;
+    }
+}
+
+function jwtChecker(token) {
+    try {
+        const payload = jwt.verify(token, 'yourSecretKey');
+        return payload;
+    } catch (err) {
+        return null;
+    }
+}
+
+app.get('/isCart/:id', async (req, res) => {
+    const token = req.cookies.token;
+    const { id } = req.params;
+    const email = req.query.email;
+
+    if (!token) {
+        return res.status(401).json({ error: 'Not authorized' });
+    }
+
+    if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const payload = jwtChecker(token);
+    if (!payload) {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const client = await pool.connect();
+
+        try {
+            const userUuid = await getUserUUID(client, email);
+            const itemUuid = await getItemUUID(client, id);
+
+            if (!userUuid || !itemUuid) {
+                return res.status(404).json({ error: 'User or item not found' });
+            }
+
+            const result = await client.query(
+                'SELECT * FROM cart WHERE item_uuid = $1 AND user_uuid = $2',
+                [itemUuid, userUuid]
+            );
+
+            return res.json(result.rows);
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error('Error fetching cart data:', err);
+        return res.status(500).json({ error: 'Server error' });
+    }
+});
 
 
 app.delete('/removeCart', async (req, res) => {
@@ -362,7 +434,6 @@ app.delete('/removeCart', async (req, res) => {
         }
 
         try {
-            // Получаем user_uuid по email
             const userResult = await client.query('SELECT user_uuid FROM users WHERE email = $1', [email]);
 
             if (userResult.rows.length === 0) {
@@ -371,7 +442,6 @@ app.delete('/removeCart', async (req, res) => {
 
             const userUuid = userResult.rows[0].user_uuid; // Извлекаем user_uuid
 
-            // Проверяем, существует ли товар в корзине
             const cartItemResult = await client.query(
                 'SELECT * FROM cart WHERE user_uuid = $1 AND item_uuid = $2',
                 [userUuid, productId]
@@ -472,6 +542,70 @@ app.get('/get_cart', async (req, res) => {
         res.status(403).json({ error: 'Unauthorized' });
     }
 })
+async function getProductUUID(product_id) {
+    const client = await pool.connect();
+
+    try {
+        const result = await client.query('SELECT product_uuid FROM products WHERE product_id = $1', [product_id]);
+        return result.rows[0]?.product_uuid || null;
+    } catch (err) {
+        console.error('Error getting product UUID:', err);
+        return null;
+    } finally {
+        client.release(); // Не забывайте освобождать клиент после использования
+    }
+}
+
+async function getUserNameByUUID(user_uuid) {
+    const client = await pool.connect();
+
+    try {
+        const result = await client.query("SELECT username FROM users WHERE user_uuid = $1", [user_uuid]);
+        return result.rows[0]?.username || null;
+    } catch (err) {
+        console.error('Error getting user')
+        return null;
+    } finally {
+        client.release();
+    }
+}
+
+app.get('/comments/:id', async (req, res) => {
+    const { id } = req.params;
+
+    const productUUID = await getProductUUID(id); // Ожидаем завершения получения UUID
+
+    if (!productUUID) {
+        return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        const result = await client.query('SELECT * FROM comments WHERE product_uuid = $1', [productUUID]);
+
+        const commentsWithUsernames = await Promise.all(
+            result.rows.map(async (comment) => {
+                const username = await getUserNameByUUID(comment.user_uuid);
+                return { ...comment, username };
+            })
+        );
+
+        res.json(commentsWithUsernames);
+    } catch (err) {
+        console.error('Error getting comments:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+
+});
+
+app.post('/comments/:id', async (req, res) => {
+    const {id} = req.params;
+    const token = req.cookies;
+})
+
 
 app.listen(8000, () => {
     console.log('Server is running on port 8000');
