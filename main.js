@@ -309,10 +309,10 @@ app.put('/addCart', async (req, res) => {
             const userUuid = userResult.rows[0].user_uuid;
 
             const result = await client.query(
-                `INSERT INTO cart (user_uuid, item_uuid, quantity) 
-                VALUES ($1, $2, $3) 
-                ON CONFLICT (user_uuid, item_uuid) 
-                DO UPDATE SET quantity = cart.quantity + EXCLUDED.quantity;`,
+                `INSERT INTO cart (user_uuid, item_uuid, quantity)
+                 VALUES ($1, $2::UUID, $3)
+                     ON CONFLICT (user_uuid, item_uuid) 
+                     DO UPDATE SET quantity = cart.quantity + EXCLUDED.quantity;`,
                 [userUuid, productId, quantity]
             );
 
