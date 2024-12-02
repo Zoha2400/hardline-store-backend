@@ -336,7 +336,13 @@ app.put('/addCart', async (req, res) => {
 async function getUserUUID(client, email) {
     try {
         const result = await client.query('SELECT user_uuid FROM users WHERE email = $1', [email]);
-        return result.rows[0]?.user_uuid || null;
+
+        if (result.rows.length === 0) {
+            console.error('User not found for email:', email);
+            return null;
+        }
+
+        return result.rows[0].user_uuid;
     } catch (err) {
         console.error('Error fetching user UUID:', err);
         return null;
@@ -601,10 +607,48 @@ app.get('/comments/:id', async (req, res) => {
 
 });
 
-app.post('/comments/:id', async (req, res) => {
-    const {id} = req.params;
-    const token = req.cookies;
-})
+app.post('/add_comments/:id', async (req, res) => {
+    const { id } = req.params;
+    const token = req.cookies.token;
+    const email = req.cookies.email;
+    const { comment_text } = req.body;
+
+    const client = await pool.connect();
+
+    try {
+        const productUUID = await getProductUUID(id);
+        const userUUID = await getUserUUID(client, email);
+
+        console.log('User UUID:', userUUID);
+        console.log('Product UUID:', productUUID);
+
+        if (!userUUID) {
+            return res.status(400).json({ error: 'User not found' });
+        }
+
+        if (!jwtChecker(token)) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        await client.query('INSERT INTO comments (product_uuid, user_uuid, comment_text) VALUES ($1, $2, $3)', [productUUID, userUUID, comment_text]);
+
+        const result = await client.query('SELECT * FROM comments WHERE product_uuid = $1', [productUUID]);
+
+        const commentsWithUsernames = await Promise.all(result.rows.map(async (comment) => {
+            const username = await getUserNameByUUID(comment.user_uuid); // Функция для получения имени пользователя
+            return { ...comment, username };
+        }));
+
+        res.status(200).json({ comments: commentsWithUsernames });
+    } catch (e) {
+        console.error('Error writing to the database:', e);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+});
+
+
 
 
 app.listen(8000, () => {
