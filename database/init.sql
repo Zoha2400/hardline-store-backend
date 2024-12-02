@@ -30,9 +30,6 @@ CREATE TABLE IF NOT EXISTS cart (
     FOREIGN KEY (user_uuid) REFERENCES users(user_uuid)
 );
 
-CREATE INDEX IF NOT EXISTS idx_cart_user ON cart(user_uuid);
-CREATE INDEX IF NOT EXISTS idx_cart_item ON cart(item_uuid);
-CREATE INDEX IF NOT EXISTS idx_cart_cartuuid ON cart(cart_uuid);
 
 
 CREATE TABLE IF NOT EXISTS products (

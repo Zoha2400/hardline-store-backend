@@ -271,9 +271,9 @@ app.delete('/delete', async (req, res) => {
     }
 })
 
-app.post('/addCart', async (req, res) => {
-    const token = req.cookies.token; // Получаем токен из cookies
-    const email = req.body.email; // Получаем email из тела запроса
+app.put('/addCart', async (req, res) => {
+    const token = req.cookies.token;
+    const email = req.body.email;
 
     if (!token) {
         return res.status(401).json({ error: 'Not authorized' });
@@ -290,25 +290,24 @@ app.post('/addCart', async (req, res) => {
     }
 
     try {
-        const client = await pool.connect(); // Получаем подключение к базе данных
+        const client = await pool.connect();
 
-        // Проверяем токен
+
         const payload = jwt.verify(token, 'yourSecretKey');
         if (!payload) {
             return res.status(403).json({ error: 'Unauthorized' });
         }
 
         try {
-            // Получаем user_uuid по email
+
             const userResult = await client.query('SELECT user_uuid FROM users WHERE email = $1', [email]);
 
             if (userResult.rows.length === 0) {
                 return res.status(404).json({ error: 'User not found' });
             }
 
-            const userUuid = userResult.rows[0].user_uuid; // Извлекаем user_uuid
+            const userUuid = userResult.rows[0].user_uuid;
 
-            // Теперь добавляем товар в корзину
             const result = await client.query(
                 `INSERT INTO cart (user_uuid, item_uuid, quantity) 
                 VALUES ($1, $2, $3) 
@@ -325,7 +324,7 @@ app.post('/addCart', async (req, res) => {
             console.error('Error interacting with database:', err);
             return res.status(500).json({ error: 'Server error' });
         } finally {
-            client.release(); // Закрываем подключение к базе данных
+            client.release();
         }
 
     } catch (err) {
@@ -432,6 +431,45 @@ app.get('/product/:id', async (req, res) => {
     } catch (err) {
         console.error('Error getting product:', err);
         res.status(500).json({ error: 'Server error' });
+    }
+})
+
+
+app.get('/get_cart', async (req, res) => {
+    const token = req.cookies.token;
+
+    if (!token) {
+        return res.status(401).json({ error: 'Not authorized' });
+    }
+
+    const email = req.body.email;
+
+    if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+    }
+
+    try{
+        const payload = jwt.verify(token, 'yourSecretKey')
+        if(payload){
+            try{
+                const client = await pool.connect();
+                const userResult = await client.query('SELECT user_uuid FROM users WHERE email = $1', [email]);
+
+                if (userResult.rows.length === 0) {
+                    return res.status(404).json({ error: 'User not found' });
+                }
+
+                const userUuid = userResult.rows[0].user_uuid;
+                const result = await client.query('SELECT * FROM cart WHERE user_uuid = $1', [userUuid]);
+                res.json(result.rows);
+            }catch (err) {
+                console.error('Error getting cart:', err);
+                res.status(500).json({ error: 'Server error' });
+            }
+        }
+    }catch (err) {
+        console.error('Error verifying token:', err);
+        res.status(403).json({ error: 'Unauthorized' });
     }
 })
 
