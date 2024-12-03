@@ -159,37 +159,37 @@ app.post('/login', async (req, res) => {
 });
 
 
-app.get('/profile', async (req, res) => {
-    const token = req.cookies.token;
-
-    if (!token) {
-        return res.status(401).json({ error: 'Not authorized' });
-    }
-
-    try {
-        const client = await pool.connect();
-
-        const payload = jwt.verify(token, 'yourSecretKey');
-        if(payload){
-          try {
-              const data = await client.query("SELECT email, phone, username, updated_at, adress FROM users WHERE email = $1", [email])
-              res.json({
-                  username: data.rows[0].username,
-                  email: data.rows[0].email,
-                  phone: data.rows[0].phone,
-                  adress: data.rows[0].adress,
-                  updated_at: data.rows[0].updated_at,
-              })
-          }catch (err) {
-              console.error('Error getting user data:', err);
-              return res.status(500).json({ error: 'Server error' });
-          }
-        }
-    } catch (err) {
-        console.error('Error verifying token:', err);
-        res.status(403).json({ error: 'Unauthorized' });
-    }
-})
+// app.get('/profile', async (req, res) => {
+//     const token = req.cookies.token;
+//
+//     if (!token) {
+//         return res.status(401).json({ error: 'Not authorized' });
+//     }
+//
+//     try {
+//         const client = await pool.connect();
+//
+//         const payload = jwt.verify(token, 'yourSecretKey');
+//         if(payload){
+//           try {
+//               const data = await client.query("SELECT email, phone, username, updated_at, adress FROM users WHERE email = $1", [email])
+//               res.json({
+//                   username: data.rows[0].username,
+//                   email: data.rows[0].email,
+//                   phone: data.rows[0].phone,
+//                   adress: data.rows[0].adress,
+//                   updated_at: data.rows[0].updated_at,
+//               })
+//           }catch (err) {
+//               console.error('Error getting user data:', err);
+//               return res.status(500).json({ error: 'Server error' });
+//           }
+//         }
+//     } catch (err) {
+//         console.error('Error verifying token:', err);
+//         res.status(403).json({ error: 'Unauthorized' });
+//     }
+// })
 
 app.put('/profile', async (req, res) => {
     const token = req.cookies.token;
@@ -611,7 +611,7 @@ app.post('/add_comments/:id', async (req, res) => {
     const { id } = req.params;
     const token = req.cookies.token;
     const email = req.cookies.email;
-    const { comment_text } = req.body;
+    const { comment_text } = req .body;
 
     const client = await pool.connect();
 
@@ -648,6 +648,52 @@ app.post('/add_comments/:id', async (req, res) => {
     }
 });
 
+app.get('/profile', async (req, res) => {
+    const token = req.cookies.token;
+    const email = req.cookies.email;
+
+
+    if (!email) {
+        return res.status(400).json({ error: 'Email not found in cookies' });
+    }
+
+    if (!token || !email) {
+        return res.status(401).json({ error: 'Not authorized' });
+    }
+
+    try {
+        const payload = await jwtChecker(token);
+        if (!payload) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        const client = await pool.connect();
+        try {
+            const result = await client.query(
+                'SELECT username, phone, address, updated_at FROM users WHERE email = $1',
+                [email]
+            );
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+
+            const user = result.rows[0];
+            res.json({
+                email,
+                username: user.username,
+                phone: user.phone,
+                address: user.address,
+                updated_at: user.updated_at,
+            });
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error('Error handling profile route:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 
 

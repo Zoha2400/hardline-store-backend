@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     role VARCHAR(50) NOT NULL DEFAULT 'customer',
     phone VARCHAR(100) NOT NULL DEFAULT '',
-    adress VARCHAR(100) NOT NULL DEFAULT ''
+    address VARCHAR(100) NOT NULL DEFAULT ''
     );
 
 
@@ -29,7 +29,10 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     discount DECIMAL(10, 2) NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    img VARCHAR(300) NOT NULL
+    img VARCHAR(300) NOT NULL,
+    rate INTEGER DEFAULT 0,
+    mark VARCHAR(100) NOT NULL,
+    category VARCHAR(50) NOT NULL
     );
 
 
@@ -66,3 +69,6 @@ CREATE TABLE IF NOT EXISTS cart (
     FOREIGN KEY (user_uuid) REFERENCES users(user_uuid),
     FOREIGN KEY (item_uuid) REFERENCES products(product_uuid)
 );
+
+create unique index cart_user_item_idx
+    on cart (user_uuid, item_uuid);
