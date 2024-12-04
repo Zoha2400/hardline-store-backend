@@ -265,8 +265,6 @@ app.put("/addCart", async (req, res) => {
   } catch (err) {
     console.error("Error verifying token:", err);
     res.status(403).json({ error: "Unauthorized" });
-  } finally {
-    client.release();
   }
 });
 
@@ -354,8 +352,6 @@ app.get("/isCart/:id", async (req, res) => {
   } catch (err) {
     console.error("Error fetching cart data:", err);
     return res.status(500).json({ error: "Server error" });
-  } finally {
-    client.release();
   }
 });
 
@@ -424,8 +420,6 @@ app.delete("/removeCart", async (req, res) => {
   } catch (err) {
     console.error("Error verifying token:", err);
     res.status(403).json({ error: "Unauthorized" });
-  } finally {
-    client.release();
   }
 });
 
@@ -496,7 +490,7 @@ app.get("/get_cart", async (req, res) => {
         const userUuid = userResult.rows[0].user_uuid;
 
         const cartResult = await client.query(
-          `SELECT c.cart_id, c.cart_uuid, c.quantity, p.product_uuid, p.product_name, p.product_description, p.price, p.img, p.rate, p.category
+          `SELECT c.cart_id, c.cart_uuid, c.quantity, p.product_id, p.product_uuid, p.product_name, p.product_description, p.price, p.img, p.rate, p.category
            FROM cart c
            JOIN products p ON c.item_uuid = p.product_uuid
            WHERE c.user_uuid = $1`,
