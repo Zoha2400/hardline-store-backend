@@ -17,16 +17,6 @@ app.use(
 );
 app.use(cookieParser());
 
-//  async function connectDB(){
-//     try {
-//         return await pool.connect();
-//     } catch (err) {
-//         console.error('Error connecting to the PostgreSQL database', err.stack);
-//     }
-// }
-//
-// app.use(connectDB)
-
 app.get("/", (req, res) => {
   res.json("success");
 });
@@ -212,6 +202,8 @@ app.delete("/delete", async (req, res) => {
   } catch (err) {
     console.error("Error verifying token:", err);
     res.status(403).json({ error: "Unauthorized" });
+  } finally {
+    client.release();
   }
 });
 
@@ -273,6 +265,8 @@ app.put("/addCart", async (req, res) => {
   } catch (err) {
     console.error("Error verifying token:", err);
     res.status(403).json({ error: "Unauthorized" });
+  } finally {
+    client.release();
   }
 });
 
@@ -305,6 +299,8 @@ async function getItemUUID(client, itemId) {
   } catch (err) {
     console.error("Error fetching item UUID:", err);
     return null;
+  } finally {
+    client.release();
   }
 }
 
@@ -358,6 +354,8 @@ app.get("/isCart/:id", async (req, res) => {
   } catch (err) {
     console.error("Error fetching cart data:", err);
     return res.status(500).json({ error: "Server error" });
+  } finally {
+    client.release();
   }
 });
 
@@ -426,6 +424,8 @@ app.delete("/removeCart", async (req, res) => {
   } catch (err) {
     console.error("Error verifying token:", err);
     res.status(403).json({ error: "Unauthorized" });
+  } finally {
+    client.release();
   }
 });
 
@@ -462,22 +462,24 @@ app.get("/product/:id", async (req, res) => {
 
 app.get("/get_cart", async (req, res) => {
   const token = req.cookies.token;
+  const email = req.cookies.email;
 
   if (!token) {
     return res.status(401).json({ error: "Not authorized" });
   }
-
-  const email = req.body.email;
 
   if (!email) {
     return res.status(400).json({ error: "Email is required" });
   }
 
   try {
-    const payload = jwt.verify(token, "yourSecretKey");
+    const payload = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "yourSecretKey",
+    );
     if (payload) {
+      const client = await pool.connect();
       try {
-        const client = await pool.connect();
         const userResult = await client.query(
           "SELECT user_uuid FROM users WHERE email = $1",
           [email],
@@ -488,14 +490,25 @@ app.get("/get_cart", async (req, res) => {
         }
 
         const userUuid = userResult.rows[0].user_uuid;
-        const result = await client.query(
-          "SELECT * FROM cart WHERE user_uuid = $1",
+
+        const cartResult = await client.query(
+          `SELECT c.cart_id, c.cart_uuid, c.quantity, p.product_uuid, p.product_name, p.product_description, p.price, p.img, p.rate, p.category
+           FROM cart c
+           JOIN products p ON c.item_uuid = p.product_uuid
+           WHERE c.user_uuid = $1`,
           [userUuid],
         );
-        res.json(result.rows);
+
+        if (cartResult.rows.length === 0) {
+          return res.json({ message: "Cart is empty", cart: [] });
+        }
+
+        res.json({ cart: cartResult.rows });
       } catch (err) {
         console.error("Error getting cart:", err);
         res.status(500).json({ error: "Server error" });
+      } finally {
+        client.release(); // Освобождаем соединение
       }
     }
   } catch (err) {
@@ -503,6 +516,7 @@ app.get("/get_cart", async (req, res) => {
     res.status(403).json({ error: "Unauthorized" });
   }
 });
+
 async function getProductUUID(product_id) {
   const client = await pool.connect();
 
@@ -516,7 +530,7 @@ async function getProductUUID(product_id) {
     console.error("Error getting product UUID:", err);
     return null;
   } finally {
-    client.release(); // Не забывайте освобождать клиент после использования
+    client.release();
   }
 }
 
@@ -710,6 +724,8 @@ app.put("/profile", async (req, res) => {
   }
 });
 
-app.listen(8000, () => {
+const server = app.listen(8000, () => {
   console.log("Server is running on port 8000");
 });
+
+server.setTimeout(0);
