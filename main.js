@@ -438,6 +438,8 @@ app.get("/products", async (req, res) => {
   } catch (err) {
     console.error("Error getting users:", err);
     res.status(500).json({ error: "Server error" });
+  } finally {
+    client.release();
   }
 });
 
@@ -457,6 +459,8 @@ app.get("/product/:id", async (req, res) => {
   } catch (err) {
     console.error("Error getting product:", err);
     res.status(500).json({ error: "Server error" });
+  } finally {
+    client.release();
   }
 });
 
