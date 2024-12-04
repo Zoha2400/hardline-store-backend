@@ -680,19 +680,28 @@ app.put("/profile", async (req, res) => {
 
   try {
     const client = await pool.connect();
-    const payload = jwt.verify(token, "yourSecretKey");
+    const payload = jwt.verify(token, "yourSecretKey"); // Подразумевается, что ключ корректный
+
     if (payload) {
       try {
-        await client.query(
-          "UPDATE users SET email = $1, phone = $2, address = $3 WHERE email = $4",
-          [email, phone, address, email],
+        const result = await client.query(
+          "UPDATE users SET phone = $1, address = $2, updated_at = NOW() WHERE email = $3 RETURNING phone, address, email, updated_at",
+          [phone, address, email],
         );
+
+        if (result.rowCount === 0) {
+          return res.status(404).json({ error: "User not found" });
+        }
+
         res.json({
           message: "Profile updated successfully",
+          profile: result.rows[0],
         });
       } catch (err) {
         console.error("Error updating user profile:", err);
         return res.status(500).json({ error: "Server error" });
+      } finally {
+        client.release();
       }
     }
   } catch (err) {
