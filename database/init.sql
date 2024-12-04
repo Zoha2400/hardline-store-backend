@@ -7,7 +7,6 @@ END $$;
 CREATE TABLE IF NOT EXISTS users (
     user_id SERIAL PRIMARY KEY,
     user_uuid UUID DEFAULT uuid_generate_v4() NOT NULL UNIQUE,
-    username VARCHAR(60) NOT NULL,
     password VARCHAR(200) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
