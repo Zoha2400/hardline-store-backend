@@ -355,71 +355,65 @@ app.get("/isCart/:id", async (req, res) => {
   }
 });
 
-app.delete("/removeCart", async (req, res) => {
-  const token = req.cookies.token; // Получаем токен из cookies
-  const email = req.body.email; // Получаем email из тела запроса
+app.post("/removeCart", async (req, res) => {
+  const token = req.cookies.token;
+  const { email, productId } = req.body;
 
-  if (!token) {
-    return res.status(401).json({ error: "Not authorized" });
-  }
+  console.log("Token из cookies:", token);
+  console.log("Тело запроса:", req.body);
 
-  if (!email) {
-    return res.status(400).json({ error: "Email is required" });
-  }
-
-  const { productId } = req.body;
-
-  if (!productId) {
+  if (!token) return res.status(401).json({ error: "Not authorized" });
+  if (!email) return res.status(400).json({ error: "Email is required" });
+  if (!productId)
     return res.status(400).json({ error: "Product ID is required" });
-  }
 
   try {
-    const client = await pool.connect(); // Получаем подключение к базе данных
+    const client = await pool.connect();
+    console.log("Подключение к базе данных успешно");
 
     const payload = jwt.verify(token, "yourSecretKey");
-    if (!payload) {
-      return res.status(403).json({ error: "Unauthorized" });
+    console.log("Payload после проверки токена:", payload);
+
+    if (!payload) return res.status(403).json({ error: "Unauthorized" });
+
+    const userResult = await client.query(
+      "SELECT user_uuid FROM users WHERE email = $1",
+      [email],
+    );
+    console.log("Результат поиска пользователя:", userResult.rows);
+
+    if (userResult.rows.length === 0)
+      return res.status(404).json({ error: "User not found" });
+
+    const userUuid = userResult.rows[0].user_uuid;
+    console.log("userUuid: ", userUuid);
+
+    const cartItemResult = await client.query(
+      "SELECT * FROM cart WHERE user_uuid = $1 AND item_uuid = $2::uuid",
+      [userUuid, productId],
+    );
+    console.log("Результат поиска товара в корзине:", cartItemResult.rows);
+
+    if (cartItemResult.rows.length === 0) {
+      console.log(
+        "Товар не найден в корзине для user_uuid:",
+        userUuid,
+        "и item_uuid:",
+        productId,
+      );
+      return res.status(404).json({ error: "Product not found in cart" });
     }
 
-    try {
-      const userResult = await client.query(
-        "SELECT user_uuid FROM users WHERE email = $1",
-        [email],
-      );
+    await client.query(
+      "DELETE FROM cart WHERE user_uuid = $1 AND item_uuid = $2::uuid",
+      [userUuid, productId],
+    );
+    console.log("Товар удален из корзины");
 
-      if (userResult.rows.length === 0) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      const userUuid = userResult.rows[0].user_uuid; // Извлекаем user_uuid
-
-      const cartItemResult = await client.query(
-        "SELECT * FROM cart WHERE user_uuid = $1 AND item_uuid = $2",
-        [userUuid, productId],
-      );
-
-      if (cartItemResult.rows.length === 0) {
-        return res.status(404).json({ error: "Product not found in cart" });
-      }
-
-      // Удаляем товар из корзины
-      await client.query(
-        "DELETE FROM cart WHERE user_uuid = $1 AND item_uuid = $2",
-        [userUuid, productId],
-      );
-
-      res.json({
-        message: "Product removed from cart successfully",
-      });
-    } catch (err) {
-      console.error("Error interacting with database:", err);
-      return res.status(500).json({ error: "Server error" });
-    } finally {
-      client.release(); // Закрываем подключение к базе данных
-    }
+    res.json({ message: "Product removed from cart successfully" });
   } catch (err) {
-    console.error("Error verifying token:", err);
-    res.status(403).json({ error: "Unauthorized" });
+    console.error("Ошибка при обработке запроса:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -462,6 +456,7 @@ app.get("/get_cart", async (req, res) => {
   const token = req.cookies.token;
   const email = req.cookies.email;
 
+  console.log("Token ", token);
   if (!token) {
     return res.status(401).json({ error: "Not authorized" });
   }
