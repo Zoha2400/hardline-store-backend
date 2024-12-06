@@ -717,6 +717,127 @@ app.put("/profile", async (req, res) => {
   }
 });
 
+app.post("/checkout", async (req, res) => {
+  const token = req.cookies.token;
+  const { email, cartItems, cardNumber } = req.body;
+
+  console.log("Received request for checkout:", {
+    token,
+    email,
+    cartItems,
+    cardNumber,
+  });
+
+  if (!token) {
+    console.log("Error: No token provided");
+    return res.status(401).json({ error: "Not authorized" });
+  }
+
+  if (!email) {
+    console.log("Error: No email provided");
+    return res.status(400).json({ error: "Email is required" });
+  }
+
+  if (!cartItems || cartItems.length === 0) {
+    console.log("Error: Cart is empty");
+    return res.status(400).json({ error: "Cart is empty" });
+  }
+
+  if (!cardNumber || cardNumber.length !== 16) {
+    console.log("Error: Invalid card number", cardNumber);
+    return res.status(400).json({ error: "Invalid card number" });
+  }
+
+  try {
+    console.log("Verifying token...");
+    const payload = jwt.verify(token, "yourSecretKey");
+    if (!payload) {
+      console.log("Error: Unauthorized - Invalid token");
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    console.log("Token verified, fetching user data...");
+    const client = await pool.connect();
+
+    const userResult = await client.query(
+      "SELECT user_uuid FROM users WHERE email = $1",
+      [email],
+    );
+
+    if (userResult.rows.length === 0) {
+      console.log("Error: User not found for email:", email);
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const userUuid = userResult.rows[0].user_uuid;
+    console.log("User found. user_uuid:", userUuid);
+
+    const totalPrice = cartItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
+    console.log("Total price calculated:", totalPrice);
+
+    const orderResult = await client.query(
+      "INSERT INTO orders (user_uuid, total_price, order_status, cart_data, credit_card) VALUES ($1, $2, $3, $4, $5) RETURNING order_uuid",
+      [userUuid, totalPrice, "Pending", JSON.stringify(cartItems), cardNumber],
+    );
+    const orderUuid = orderResult.rows[0].order_uuid;
+    console.log("Order placed successfully. order_uuid:", orderUuid);
+
+    // Удаление товаров из корзины
+    await client.query("DELETE FROM cart WHERE user_uuid = $1", [userUuid]);
+    console.log("Cart items removed from cart for user_uuid:", userUuid);
+
+    res.status(200).json({
+      message: "Order placed successfully",
+      orderUuid: orderUuid,
+    });
+  } catch (err) {
+    console.error("Error processing the order:", err);
+
+    // Логируем ошибку более подробно
+    if (err instanceof jwt.JsonWebTokenError) {
+      console.log("JWT Error:", err.message);
+    } else if (err.code) {
+      console.log("Database Error Code:", err.code);
+    } else {
+      console.log("Unknown Error:", err);
+    }
+
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.get("/orders", async (req, res) => {
+  const token = req.cookies.token;
+  const { email } = req.query; // Используем req.query, так как данные передаются через параметры запроса
+
+  if (!token || !email) {
+    return res.status(401).json({ error: "Not authorized" });
+  }
+
+  const payload = jwtChecker(token);
+
+  if (payload) {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(
+        "SELECT * FROM orders WHERE user_uuid = (SELECT user_uuid FROM users WHERE email = $1)",
+        [email],
+      );
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Error: ", err);
+      res.status(500).json({ error: "Internal Server Error" });
+    } finally {
+      client.release();
+    }
+  } else {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+});
+
 const server = app.listen(8000, () => {
   console.log("Server is running on port 8000");
 });
