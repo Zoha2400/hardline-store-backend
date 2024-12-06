@@ -200,19 +200,38 @@ app.get("/isCart/:id", async (req, res) => {
     const client = await pool.connect();
 
     try {
-      const userUuid = await getUserUUID(client, email);
-      const itemUuid = await getItemUUID(client, id);
+      const { rows: userRows } = await client.query(
+        "SELECT user_uuid FROM users WHERE email = $1",
+        [email],
+      );
 
-      if (!userUuid || !itemUuid) {
-        return res.status(404).json({ error: "User or item not found" });
+      if (userRows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
       }
 
-      const result = await client.query(
-        "SELECT * FROM cart WHERE item_uuid = $1 AND user_uuid = $2",
+      const userUuid = userRows[0].uuid;
+
+      const { rows: itemRows } = await client.query(
+        "SELECT item_uuid FROM cart WHERE cart_id = $1",
+        [id],
+      );
+
+      if (itemRows.length === 0) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+
+      const itemUuid = itemRows[0].item_uuid; // Assuming item_uuid is the correct column name
+
+      const { rows: cartRows } = await client.query(
+        "SELECT quantity FROM cart WHERE item_uuid = $1 AND user_uuid = $2",
         [itemUuid, userUuid],
       );
 
-      return res.json(result.rows);
+      if (cartRows.length > 0) {
+        return res.json({ inCart: true, quantity: cartRows[0].quantity });
+      } else {
+        return res.json({ inCart: false });
+      }
     } finally {
       client.release();
     }
