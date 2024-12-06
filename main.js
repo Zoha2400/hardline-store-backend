@@ -284,14 +284,24 @@ app.post("/removeCart", async (req, res) => {
   }
 });
 
-app.get("/products", async (req, res) => {
+app.get("/products/:search?", async (req, res) => {
   const client = await pool.connect();
+  const { search } = req.params;
 
   try {
-    const result = await client.query("SELECT * FROM products");
+    let result;
+    if (search && search.trim() !== "") {
+      result = await client.query(
+        "SELECT * FROM products WHERE product_name ILIKE $1",
+        [`%${search}%`],
+      );
+    } else {
+      result = await client.query("SELECT * FROM products");
+    }
+
     res.json(result.rows);
   } catch (err) {
-    console.error("Error getting users:", err);
+    console.error("Error getting products:", err);
     res.status(500).json({ error: "Server error" });
   } finally {
     client.release();
