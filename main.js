@@ -5,6 +5,8 @@ import bcrypt from "bcryptjs";
 import cors from "cors";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
+import { login, reg } from "./auth.js";
+import { jwtChecker } from "./jwt.js";
 
 const app = express();
 
@@ -21,134 +23,8 @@ app.get("/", (req, res) => {
   res.json("success");
 });
 
-app.post("/reg", async (req, res) => {
-  const secretKey = "yourSecretKey";
-
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: "All fields are required" });
-  }
-
-  if (!validator.isEmail(email)) {
-    return res.status(400).json({ error: "Email is not valid" });
-  }
-
-  if (!validator.isStrongPassword(password)) {
-    return res.status(400).json({
-      error:
-        "Password is not strong enough. { minLength: 8, minLowercase: 1, minUppercase: 1, minNumbers: 1, minSymbols: 1 }",
-    });
-  }
-
-  const client = await pool.connect();
-
-  try {
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const result = await client.query(
-      "INSERT INTO users (password, email) VALUES ($1, $2) RETURNING *",
-      [passwordHash, email],
-    );
-
-    const token = jwt.sign(
-      { id: result.rows[0].id, email: result.rows[0].email },
-      secretKey,
-      { expiresIn: "24h" },
-    );
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
-      maxAge: 24 * 60 * 60 * 1000,
-    });
-    res.cookie("email", email, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
-      maxAge: 24 * 60 * 60 * 1000,
-    });
-
-    return res.status(201).json({
-      message: "User created successfully",
-      data: { email: result.rows[0].email },
-    });
-  } catch (err) {
-    console.error("Error creating user:", err);
-
-    if (err.code === "23505") {
-      return res.status(409).json({ error: "Email already exists" });
-    }
-
-    return res.status(500).json({ error: "Server error" });
-  } finally {
-    client.release();
-  }
-});
-
-app.post("/login", async (req, res) => {
-  const { email, password } = req.body;
-  const secretKey = "yourSecretKey";
-
-  if (!email || !password) {
-    return res.status(400).json({ error: "All fields are required" });
-  }
-
-  if (!validator.isEmail(email)) {
-    return res.status(400).json({ error: "Email is not valid" });
-  }
-
-  const client = await pool.connect();
-
-  try {
-    const result = await client.query(
-      "SELECT password FROM users WHERE email = $1",
-      [email],
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const hashedPassword = result.rows[0].password;
-
-    const isRealPassword = await bcrypt.compare(password, hashedPassword);
-
-    if (isRealPassword) {
-      const token = jwt.sign(
-        { id: result.rows[0].id, email: result.rows[0].email },
-        secretKey,
-        { expiresIn: "24h" }, // Токен действителен 1 час
-      );
-
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production", // только для HTTPS в продакшене
-        sameSite: "Strict",
-        maxAge: 24 * 60 * 60 * 1000, // Токен живет 1 день
-      });
-      res.cookie("email", email, {
-        httpOnly: false, // Это можно сделать доступным для JS, если нужно
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "Strict",
-        maxAge: 24 * 60 * 60 * 1000,
-      });
-
-      return res.status(201).json({
-        message: "Logged In Successfully",
-        data: { email: email },
-      });
-    } else {
-      return res.status(401).json({ error: "Invalid password" });
-    }
-  } catch (err) {
-    console.error("Error during login", err);
-    return res.status(500).json({ error: "Server error" });
-  } finally {
-    client.release();
-  }
-});
+app.post("/reg", reg);
+app.post("/login", login);
 
 app.delete("/logout", (req, res) => {
   const token = req.cookies.token;
@@ -157,7 +33,7 @@ app.delete("/logout", (req, res) => {
     return res.status(401).json({ error: "Not authorized" });
   }
 
-  const payload = jwt.verify(token, "yourSecretKey");
+  const payload = jwt.verify(token, process.env.JWT);
 
   if (payload) {
     res.clearCookie("token", {
@@ -187,7 +63,7 @@ app.delete("/delete", async (req, res) => {
 
   try {
     const client = await pool.connect();
-    const payload = jwt.verify(token, "yourSecretKey");
+    const payload = jwtChecker(token);
     if (payload) {
       try {
         await client.query("DELETE FROM users WHERE email = $1", [email]);
@@ -228,7 +104,7 @@ app.put("/addCart", async (req, res) => {
   try {
     const client = await pool.connect();
 
-    const payload = jwt.verify(token, "yourSecretKey");
+    const payload = jwtChecker(token);
     if (!payload) {
       return res.status(403).json({ error: "Unauthorized" });
     }
@@ -302,15 +178,6 @@ async function getItemUUID(client, itemId) {
   }
 }
 
-function jwtChecker(token) {
-  try {
-    const payload = jwt.verify(token, "yourSecretKey");
-    return payload;
-  } catch (err) {
-    return null;
-  }
-}
-
 app.get("/isCart/:id", async (req, res) => {
   const token = req.cookies.token;
   const { id } = req.params;
@@ -371,7 +238,7 @@ app.post("/removeCart", async (req, res) => {
     const client = await pool.connect();
     console.log("Подключение к базе данных успешно");
 
-    const payload = jwt.verify(token, "yourSecretKey");
+    const payload = jwtChecker(token);
     console.log("Payload после проверки токена:", payload);
 
     if (!payload) return res.status(403).json({ error: "Unauthorized" });
@@ -466,10 +333,7 @@ app.get("/get_cart", async (req, res) => {
   }
 
   try {
-    const payload = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "yourSecretKey",
-    );
+    const payload = jwtChecker(token);
     if (payload) {
       const client = await pool.connect();
       try {
@@ -687,7 +551,7 @@ app.put("/profile", async (req, res) => {
 
   try {
     const client = await pool.connect();
-    const payload = jwt.verify(token, "yourSecretKey"); // Подразумевается, что ключ корректный
+    const payload = jwtChecker(token);
 
     if (payload) {
       try {
@@ -750,7 +614,7 @@ app.post("/checkout", async (req, res) => {
 
   try {
     console.log("Verifying token...");
-    const payload = jwt.verify(token, "yourSecretKey");
+    const payload = jwtChecker(token);
     if (!payload) {
       console.log("Error: Unauthorized - Invalid token");
       return res.status(403).json({ error: "Unauthorized" });
