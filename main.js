@@ -17,6 +17,22 @@ app.use(
 );
 app.use(cookieParser());
 
+function authenticateToken(req, res, next) {
+  const token = req.cookies?.token;
+
+  if (!token) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  jwt.verify(token, "TUITHARDLINE", (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    req.user = user;
+    next();
+  });
+}
+
 app.get("/", (req, res) => {
   res.json("success");
 });
@@ -726,6 +742,62 @@ app.get("/orders", async (req, res) => {
     }
   } else {
     return res.status(401).json({ error: "Unauthorized" });
+  }
+});
+
+app.post("/products", authenticateToken, async (req, res) => {
+  const {
+    product_name,
+    product_description,
+    price,
+    type,
+    quantity,
+    discount,
+    img,
+    mark,
+    category,
+  } = req.body;
+
+  if (
+    !product_name ||
+    !price ||
+    !type ||
+    !quantity ||
+    !discount ||
+    !img ||
+    !mark ||
+    !category
+  ) {
+    return res
+      .status(400)
+      .json({ error: "All required fields must be provided." });
+  }
+
+  try {
+    const query = `
+            INSERT INTO products 
+            (product_name, product_description, price, type, quantity, discount, img, mark, category)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING *;
+        `;
+    const values = [
+      product_name,
+      product_description,
+      price,
+      type,
+      quantity,
+      discount,
+      img,
+      mark,
+      category,
+    ];
+
+    const result = await pool.query(query, values);
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error("Error inserting product:", error);
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 
