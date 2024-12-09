@@ -1,7 +1,5 @@
 import express from "express";
-import validator from "validator";
 import { pool } from "./database/db.js";
-import bcrypt from "bcryptjs";
 import cors from "cors";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
