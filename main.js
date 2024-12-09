@@ -327,10 +327,16 @@ async function getEmailByUserUUID(user_uuid) {
 
   try {
     const result = await client.query(
-      "SELECT email FROM users WHERE user_uuid = $1",
+      "SELECT email, role, color FROM users WHERE user_uuid = $1",
       [user_uuid],
     );
-    return result.rows[0]?.email || null;
+    return (
+      {
+        email: result.rows[0]?.email,
+        role: result.rows[0]?.role,
+        color: result.rows[0]?.color,
+      } || null
+    );
   } catch (err) {
     console.error("Error getting email");
     return null;
@@ -358,8 +364,12 @@ app.get("/comments/:id", async (req, res) => {
 
     const commentsWithEmails = await Promise.all(
       result.rows.map(async (comment) => {
-        const email = await getEmailByUserUUID(comment.user_uuid);
-        return { ...comment, email };
+        const data = await getEmailByUserUUID(comment.user_uuid);
+        const email = await data.email;
+        const role = await data.role;
+        const color = await data.color;
+
+        return { ...comment, email, role, color };
       }),
     );
 
@@ -402,8 +412,12 @@ app.post("/add_comments/:id", authenticateToken, async (req, res) => {
 
     const commentsWithEmails = await Promise.all(
       result.rows.map(async (comment) => {
-        const email = await getEmailByUserUUID(comment.user_uuid); // Функция для получения имени пользователя
-        return { ...comment, email };
+        const data = await getEmailByUserUUID(comment.user_uuid);
+        const email = await data.email;
+        const role = await data.role;
+        const color = await data.color;
+
+        return { ...comment, email, role, color };
       }),
     );
 
@@ -574,7 +588,6 @@ app.get("/orders", authenticateToken, async (req, res) => {
   } finally {
     client.release();
   }
-  return res.status(401).json({ error: "Unauthorized" });
 });
 
 app.post("/products", authenticateToken, async (req, res) => {
@@ -638,9 +651,11 @@ app.get("/isAdmin", async (req, res) => {
   if (!email) {
     return res.status(400).json({ error: "Please enter a valid email" });
   }
+
   if (email === "notEmail") {
-    return res.status(200).json({ role: "customer", error: "Not authorized" });
+    return res.status(401).json({ error: "Not authorized" });
   }
+
   const client = await pool.connect();
 
   try {
@@ -648,14 +663,13 @@ app.get("/isAdmin", async (req, res) => {
       "SELECT role FROM users WHERE email = $1",
       [email],
     );
+
     if (result.rows.length === 0) {
       return res
-        .status(200)
-        .json({
-          role: "customer",
-          error: "User not found or no role assigned",
-        });
+        .status(404)
+        .json({ error: "User not found or no role assigned" });
     }
+
     res.status(200).json({ role: result.rows[0].role });
   } catch (err) {
     console.error("Error fetching user role:", err);

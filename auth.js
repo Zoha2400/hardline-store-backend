@@ -2,6 +2,7 @@ import validator from "validator";
 import { pool } from "./database/db.js";
 import bcrypt from "bcryptjs";
 import { jwtCreate } from "./jwt.js";
+import getRandomBrightColor from "./funcs.js";
 
 export async function reg(req, res) {
   const { email, password } = req.body;
@@ -25,10 +26,11 @@ export async function reg(req, res) {
 
   try {
     const passwordHash = await bcrypt.hash(password, 10);
+    const color = getRandomBrightColor();
 
     const result = await client.query(
-      "INSERT INTO users (password, email) VALUES ($1, $2) RETURNING *",
-      [passwordHash, email],
+      "INSERT INTO users (password, email, color) VALUES ($1, $2, $3) RETURNING *",
+      [passwordHash, email, color],
     );
 
     const token = jwtCreate(result.rows[0].id, result.rows[0].email);
