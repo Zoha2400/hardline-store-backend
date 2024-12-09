@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     role VARCHAR(50) NOT NULL DEFAULT 'customer',
     phone VARCHAR(100) NOT NULL DEFAULT '',
-    address VARCHAR(100) NOT NULL DEFAULT ''
+    address VARCHAR(100) NOT NULL DEFAULT '',
+    color VARCHAR(10) NOT NULL DEFAULT ''
     );
 
 
@@ -67,6 +68,16 @@ CREATE TABLE IF NOT EXISTS cart (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_uuid) REFERENCES users(user_uuid),
     FOREIGN KEY (item_uuid) REFERENCES products(product_uuid)
+);
+
+CREATE TABLE IF NOT EXISTS messages
+(
+    id         SERIAL PRIMARY KEY,
+    name       TEXT    NOT NULL,
+    email      TEXT    NOT NULL,
+    subject    TEXT    NOT NULL,
+    message    TEXT    NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 create unique index cart_user_item_idx

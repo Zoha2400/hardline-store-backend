@@ -679,6 +679,81 @@ app.get("/isAdmin", async (req, res) => {
   }
 });
 
+app.get("/messages", authenticateToken, async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const result = await client.query("SELECT * FROM messages");
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching messages:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/messages", async (req, res) => {
+  const { name, email, subject, message } = req.body;
+
+  if (!name || !email || !subject || !message) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    const result = await client.query(
+      `INSERT INTO messages (name, email, subject, message) 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING *`,
+      [name, email, subject, message],
+    );
+
+    res.status(201).json({
+      message: "Message successfully saved",
+      data: result.rows[0],
+    });
+  } catch (err) {
+    console.error("Error saving message:", err);
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete("/messages/:id", authenticateToken, async (req, res) => {
+  const client = await pool.connect();
+  const { id } = req.params;
+
+  try {
+    const result = await client.query("DELETE FROM messages WHERE id = $1", [
+      id,
+    ]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Сообщение не найдено." });
+    }
+    res.status(200).json({ message: "Сообщение успешно удалено." });
+  } catch (err) {
+    console.error("Error deleting message:", err);
+    res.status(500).json({ error: "Internal server error." });
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/users", authenticateToken, async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const result = await client.query("SELECT * FROM users");
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching users:", err);
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    client.release();
+  }
+});
+
 const server = app.listen(8000, () => {
   console.log("Server is running on port 8000");
 });
