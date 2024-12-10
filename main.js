@@ -755,6 +755,29 @@ app.get("/users", authenticateToken, async (req, res) => {
   }
 });
 
+app.post("/rateProduct", async (req, res) => {
+  try {
+    const { productId, rating, email } = req.body;
+    if (!email || !productId || !rating) {
+      return res.status(400).json({ error: "Missing required parameters" });
+    }
+
+    const result = await pool.query(
+      "UPDATE products SET rate = $1 WHERE product_uuid = $2",
+      [rating, productId],
+    );
+
+    if (result.rowCount > 0) {
+      res.status(200).json({ message: "Rating updated successfully" });
+    } else {
+      res.status(404).json({ error: "Product not found" });
+    }
+  } catch (error) {
+    console.error("Error updating rating:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 const server = app.listen(8000, () => {
   console.log("Server is running on port 8000");
 });
