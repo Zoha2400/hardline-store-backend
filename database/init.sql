@@ -82,3 +82,35 @@ CREATE TABLE IF NOT EXISTS messages
 
 create unique index cart_user_item_idx
     on cart (user_uuid, item_uuid);
+
+
+
+
+UPDATE products
+SET rate = (
+    SELECT ROUND(AVG(rating), 1)  -- Calculate the average rating, rounded to 1 decimal place
+    FROM ratings
+    WHERE product_uuid = products.product_uuid
+)
+WHERE EXISTS (
+    SELECT 1
+    FROM ratings
+    WHERE product_uuid = products.product_uuid
+);
+
+
+create table ratings
+(
+    rating_id   serial primary key,
+    product_uuid uuid references products(product_uuid),
+    user_email   varchar(100) not null,
+    rating       int check(rating >= 1 and rating <= 5), -- rating between 1 to 5
+    created_at timestamp default CURRENT_TIMESTAMP
+);
+
+alter table products
+    owner to tuit;
+
+
+ALTER TABLE products
+    ALTER COLUMN rate TYPE float;

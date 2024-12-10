@@ -755,25 +755,113 @@ app.get("/users", authenticateToken, async (req, res) => {
   }
 });
 
-app.post("/rateProduct", async (req, res) => {
+app.post("/rateProduct", authenticateToken, async (req, res) => {
   try {
     const { productId, rating, email } = req.body;
     if (!email || !productId || !rating) {
       return res.status(400).json({ error: "Missing required parameters" });
     }
 
+    const userRatingCheck = await pool.query(
+      "SELECT * FROM ratings WHERE product_uuid = $1 AND user_email = $2",
+      [productId, email],
+    );
+
+    if (userRatingCheck.rows.length > 0) {
+      await pool.query(
+        "UPDATE ratings SET rating = $1 WHERE product_uuid = $2 AND user_email = $3",
+        [rating, productId, email],
+      );
+    } else {
+      await pool.query(
+        "INSERT INTO ratings (product_uuid, user_email, rating) VALUES ($1, $2, $3)",
+        [productId, email, rating],
+      );
+    }
+
+    const ratingsResult = await pool.query(
+      "SELECT rating FROM ratings WHERE product_uuid = $1",
+      [productId],
+    );
+
+    const allRatings = ratingsResult.rows.map((row) => row.rating);
+    const sumOfRatings = allRatings.reduce((acc, val) => acc + val, 0);
+    const newAverageRating = sumOfRatings / allRatings.length;
+
     const result = await pool.query(
       "UPDATE products SET rate = $1 WHERE product_uuid = $2",
-      [rating, productId],
+      [newAverageRating, productId],
     );
 
     if (result.rowCount > 0) {
-      res.status(200).json({ message: "Rating updated successfully" });
+      res
+        .status(200)
+        .json({ message: "Rating updated successfully", newAverageRating });
     } else {
       res.status(404).json({ error: "Product not found" });
     }
   } catch (error) {
     console.error("Error updating rating:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.get("/admin/products", authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT product_id, product_name, product_description, price, img 
+       FROM products 
+       ORDER BY product_id`,
+    );
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.get("/admin/project/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const projectResult = await pool.query(
+      "SELECT * FROM products WHERE product_id = $1",
+      [id],
+    );
+
+    if (projectResult.rows.length > 0) {
+      res.status(200).json(projectResult.rows[0]);
+    } else {
+      res.status(404).json({ error: "Project not found" });
+    }
+  } catch (error) {
+    console.error("Error fetching project:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.put("/admin/project/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { product_name, product_description, price, img } = req.body;
+
+    const result = await pool.query(
+      `UPDATE products 
+       SET product_name = $1, 
+           product_description = $2, 
+           price = $3, 
+           img = $4, 
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE product_id = $5`,
+      [product_name, product_description, price, img, id],
+    );
+
+    if (result.rowCount > 0) {
+      res.status(200).json({ message: "Project updated successfully" });
+    } else {
+      res.status(404).json({ error: "Project not found" });
+    }
+  } catch (error) {
+    console.error("Error updating project:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
