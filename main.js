@@ -653,7 +653,7 @@ app.get("/isAdmin", async (req, res) => {
   }
 
   if (email === "notEmail") {
-    return res.status(401).json({ error: "Not authorized" });
+    return res.status(200).json({ error: "Not authorized", role: "customer" });
   }
 
   const client = await pool.connect();
@@ -665,9 +665,10 @@ app.get("/isAdmin", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ error: "User not found or no role assigned" });
+      return res.status(200).json({
+        error: "User not found or no role assigned",
+        role: "customer",
+      });
     }
 
     res.status(200).json({ role: result.rows[0].role });
